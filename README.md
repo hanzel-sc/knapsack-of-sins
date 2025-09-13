@@ -1,143 +1,350 @@
 # Asylum of Sins
 
-A dark, atmospheric CLI-based adventure game that combines **algorithmic problem-solving** with **narrative-driven gameplay**.  
-Players navigate **moral choices (sins)** and **spatial challenges (mazes)** while the game compares their performance against algorithmic benchmarks.
+A dark atmospheric puzzle-adventure game combining moral decision-making with classic computer science algorithms. Navigate through a narrative where your sins and virtues determine both your burden and the structure of the maze you must traverse to reach salvation.
 
----
+![Python](https://img.shields.io/badge/python-v2.7%2B-blue.svg)
+![Pygame](https://img.shields.io/badge/pygame-v1.9.1%2B-green.svg)
 
-## Table of Contents
-1. [Game Overview](#game-overview)  
-2. [Architecture & Design](#architecture--design)  
-3. [Algorithm Implementations](#algorithm-implementations)  
-4. [Game Mechanics](#game-mechanics)  
-5. [Technical Features](#technical-features)  
-6. [User Interface](#user-interface)  
-7. [Ending System](#ending-system)  
-8. [Installation & Usage](#installation--usage)  
-9. [Code Structure](#code-structure)  
-10. [Future Enhancements](#future-enhancements)  
-11. [Performance Analysis](#performance-analysis)  
-12. [Educational Value](#educational-value)  
-13. [Technical Implementation Details](#technical-implementation-details)  
-14. [Security and Data Privacy](#security-and-data-privacy)  
-15. [Conclusion](#conclusion)  
+## Overview
 
----
+**Asylum of Sins** demonstrates practical applications of fundamental algorithms in game development:
+- **Knapsack Problem** for moral choice optimization within capacity constraints
+- **Recursive Backtracking** for dynamic maze generation
+- **Dijkstra's Algorithm** for optimal pathfinding
+- **Fog of War** system with geometric visibility
 
-## Game Overview
+Players progress through eight distinct phases, from confession to final judgment, where every choice influences both gameplay mechanics and narrative outcomes.
 
-- **Theme**: Dark psychological horror with algorithmic judgment  
-- **Genre**: CLI Adventure/Puzzle with Educational Elements  
-- **Target Audience**: Programmers, algorithm enthusiasts, horror fans  
-- **Unique Selling Point**: Real-time comparison of human decision-making vs algorithmic optimization  
+## Features
 
----
+- **Interactive Moral Selection**: Choose sins and virtues within soul capacity limits
+- **Dynamic Maze Generation**: Maze structure influenced by moral choices
+- **Fog of War Navigation**: Limited visibility that reveals the maze gradually  
+- **Multiple Endings**: Four different fates based on moral balance and performance
+- **Atmospheric Design**: Particle effects, thematic colors, and immersive UI
+- **Algorithm Visualization**: See optimal paths and efficiency calculations
 
-## Architecture & Design
+## Game Flow
 
-**Principles**:  
-- Every choice has computational weight (sin weight in knapsack, path cost in maze).  
-- Dual optimization:  
-  - **Knapsack DP** for sin selection  
-  - **Dijkstra** for pathfinding  
-- Player choices → Algorithm analysis → Narrative consequences  
+1. **Introduction** - Atmospheric story setup
+2. **Confession** - Preparation for moral choices
+3. **Sin Selection** - Interactive burden selection
+4. **Virtue Selection** - Interactive redemption selection  
+5. **Summary** - Review moral weight and balance
+6. **Maze Preparation** - Setup for the trial
+7. **Maze Navigation** - Traverse the judgment maze
+8. **Final Judgment** - Discover your eternal fate
 
-## Implementation
+## Algorithm Implementation
 
-def fractional_knapsack_dp(self) -> List[Sin]:
-    n = len(self.sins)
-    W = self.max_weight
+### Knapsack Problem - Interactive Selection
+
+```python
+def calculate_current_weight(self):
+    """Calculate current total weight of selected items"""
+    sin_weight = sum(sin.weight for sin in self.sins if sin.selected)
+    virtue_weight = sum(virtue.weight for virtue in self.virtues if virtue.selected)
+    return sin_weight + virtue_weight
+
+# Capacity validation during selection
+if self.calculate_current_weight() + item.weight <= self.soul_capacity:
+    item.selected = True
+```
+
+**Complexity**: O(n) for validation, O(1) for individual operations  
+**Application**: Real-time capacity checking during interactive moral selection
+
+### Recursive Backtracking - Maze Generation
+
+```python
+def generate_sinful_maze(self, chosen_sins, chosen_virtues):
+    """Generate maze based on moral choices using recursive backtracking"""
+    stack = [(1, 1)]
+    self.maze[1][1] = 0
+    directions = [(2, 0), (0, 2), (-2, 0), (0, -2)]
     
-    # Create DP table: dp[i][w] = max value using first i items with weight limit w
-    dp = [[0 for _ in range(W + 1)] for _ in range(n + 1)]
+    while stack:
+        current_x, current_y = stack[-1]
+        neighbors = []
+        
+        for dx, dy in directions:
+            nx, ny = current_x + dx, current_y + dy
+            if (0 < nx < self.width - 1 and 0 < ny < self.height - 1 and 
+                self.maze[ny][nx] == 1):
+                neighbors.append((nx, ny, dx, dy))
+        
+        if neighbors:
+            nx, ny, dx, dy = random.choice(neighbors)
+            wall_x = current_x + dx // 2
+            wall_y = current_y + dy // 2
+            self.maze[wall_y][wall_x] = 0
+            self.maze[ny][nx] = 0
+            stack.append((nx, ny))
+        else:
+            stack.pop()
     
-    # Fill DP table using recurrence relation
-    for i in range(1, n + 1):
-        for w in range(1, W + 1):
-            if self.sins[i-1].weight <= w:
-                dp[i][w] = max(
-                    dp[i-1][w],  # Don't take item i
-                    dp[i-1][w - self.sins[i-1].weight] + self.sins[i-1].consequence_value  # Take item i
-                )
-            else:
-                dp[i][w] = dp[i-1][w]  # Can't take item i
+    # Apply moral choice modifications
+    self._apply_sin_effects(chosen_sins)
+    self._apply_virtue_effects(chosen_virtues)
+```
+
+**Complexity**: O(n×m) time, O(n×m) space  
+**Enhancement**: Post-processing applies sin/virtue-specific maze modifications
+
+### Dijkstra's Algorithm - Pathfinding
+
+```python
+def dijkstra_pathfinding(self, start, end):
+    """Calculate optimal path using Dijkstra's algorithm"""
+    distances = [[float('inf')] * cols for _ in range(rows)]
+    visited = [[False] * cols for _ in range(rows)]
+    parent = {start: None}
     
-    # Backtrack to reconstruct solution
-    selected = []
-    w = W
-    for i in range(n, 0, -1):
-        if dp[i][w] != dp[i-1][w]:  # Item i was selected
-            selected.append(self.sins[i-1])
-            w -= self.sins[i-1].weight
+    distances[start[1]][start[0]] = 0
+    heap = [(0, start)]
     
-    return selected
+    while heap:
+        current_dist, pos = heapq.heappop(heap)
+        x, y = pos
+        
+        if visited[y][x]:
+            continue
+        visited[y][x] = True
+        
+        if pos == end:
+            break
+        
+        for dx, dy in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
+            nx, ny = x + dx, y + dy
+            if (0 <= nx < cols and 0 <= ny < rows and self.maze[ny][nx] == 0):
+                new_dist = current_dist + 1
+                if new_dist < distances[ny][nx]:
+                    distances[ny][nx] = new_dist
+                    parent[(nx, ny)] = (x, y)
+                    heapq.heappush(heap, (new_dist, (nx, ny)))
+    
+    # Reconstruct path
+    path = []
+    current = end
+    while current is not None:
+        path.append(current)
+        current = parent.get(current)
+    path.reverse()
+    
+    return path if path and path[0] == start else []
+```
 
+**Complexity**: O((V + E) log V) where V = cells, E = edges  
+**Purpose**: Calculate optimal path for performance comparison (revealed after completion)
 
----
+### Fog of War - Visibility System
 
-## Algorithm Implementations
+```python
+def reveal_around_player(self):
+    """Reveal cells within vision radius using Euclidean distance"""
+    px, py = self.player_pos
+    for dy in range(-VISION_RADIUS, VISION_RADIUS + 1):
+        for dx in range(-VISION_RADIUS, VISION_RADIUS + 1):
+            nx, ny = px + dx, py + dy
+            if 0 <= nx < MAZE_WIDTH and 0 <= ny < MAZE_HEIGHT:
+                distance = math.sqrt(dx*dx + dy*dy)
+                if distance <= VISION_RADIUS:
+                    self.visited_cells.add((nx, ny))
+```
 
-### 1. Dynamic Programming – Knapsack
-- Optimizes sin selection within **weight constraint (15 units)**  
-- **Complexity**: O(n × W), trivial for 7 sins  
+**Complexity**: O(r²) where r = vision radius  
+**Effect**: Creates atmospheric exploration with limited visibility
 
-### 2. Dijkstra’s Shortest Path
-- Finds **optimal path** through maze  
-- Compares player’s path vs optimal  
-- **Complexity**: O(V log V + E), efficient for 15×15 mazes  
+## Installation
 
-### 3. Recursive Backtracking – Maze Generation
-- Generates unique solvable mazes  
-- Randomized for variety  
-- **Complexity**: O(n²)  
+### Requirements
 
----
+- Python 2.7+ or Python 3.x
+- Pygame 1.9.1+
+- Standard libraries: `random`, `heapq`, `math`, `time`, `itertools`
+
+### Quick Setup
+
+```bash
+# Clone repository
+git clone https://github.com/yourusername/asylum-of-sins.git
+cd asylum-of-sins
+
+# Install pygame
+pip install pygame
+
+# Run game
+python asylum_of_sins.py
+```
+
+### Detailed Installation
+
+#### Windows
+```cmd
+# Install Python from https://python.org/downloads/
+# Ensure "Add Python to PATH" is checked
+
+# Install pygame
+pip install pygame
+
+# Run game
+python asylum_of_sins.py
+```
+
+#### macOS
+```bash
+# Using Homebrew
+brew install python
+pip install pygame
+
+# Run game
+python asylum_of_sins.py
+```
+
+#### Linux (Ubuntu/Debian)
+```bash
+# Install Python and pip
+sudo apt update
+sudo apt install python3 python3-pip
+
+# Install pygame
+pip3 install pygame
+
+# Run game
+python3 asylum_of_sins.py
+```
+
+### Virtual Environment (Recommended)
+
+```bash
+# Create virtual environment
+python -m venv asylum_env
+
+# Activate
+# Windows:
+asylum_env\Scripts\activate
+# macOS/Linux:
+source asylum_env/bin/activate
+
+# Install dependencies
+pip install pygame
+
+# Run game
+python asylum_of_sins.py
+
+# Deactivate when done
+deactivate
+```
+
+## Controls
+
+| Key | Action |
+|-----|--------|
+| Arrow Keys / WASD | Navigate menus and maze |
+| SPACE | Select/deselect items, advance text |
+| ENTER | Confirm selections, continue |
+| R | Restart game (judgment screen) |
+
+## Troubleshooting
+
+### Common Issues
+
+**Pygame Installation Error:**
+```bash
+# Upgrade pip first
+pip install --upgrade pip
+pip install pygame
+
+# Linux: Install dependencies
+sudo apt install python3-dev python3-setuptools
+```
+
+**Permission Errors:**
+```bash
+# Use --user flag
+pip install --user pygame
+```
+
+**Display Issues:**
+- Ensure 1400×900 resolution support
+- Update graphics drivers
+- Enable X11 forwarding for SSH connections
+
+**Multiple Python Versions:**
+```bash
+# Use specific version
+python3 -m pip install pygame
+python3 asylum_of_sins.py
+```
+
+## Technical Specifications
+
+### Performance
+- **Maze Generation**: ~0.1-0.5 seconds for 51×35 maze
+- **Pathfinding**: ~0.01-0.1 seconds typical
+- **Frame Rate**: 60 FPS target
+- **Memory Usage**: ~10-20 MB during gameplay
+
+### System Requirements
+
+**Minimum:**
+- OS: Windows 7+, macOS 10.9+, Linux
+- RAM: 512 MB
+- Display: 1400×900
+- Python: 2.7+
+
+**Recommended:**
+- OS: Windows 10, macOS 10.15+, Ubuntu 18.04+
+- RAM: 2 GB
+- Display: 1920×1080
+- Python: 3.7+
 
 ## Game Mechanics
 
-- **Sins** act as weighted items with consequences:
-  - *Greed*: 💰 heavy but high consequence  
-  - *Wrath*: 🔥 adds costly obstacles  
-  - *Despair*: 💀 triggers special ending conditions  
+### Moral Choice System
 
-- **Navigation**:  
-  - WASD movement  
-  - Fog of war with limited vision (range = 2)  
-  - Path length tracked for efficiency  
+**Sins** (9 available):
+- Wrath, Envy, Pride, Greed, Lust, Gluttony, Sloth, Despair, Hatred
+- Each sin affects maze generation (adds complexity, loops, dead ends)
 
-- **Performance Metrics**:  
-  - Path efficiency  
-  - Total consequence value  
-  - Steps taken vs optimal  
+**Virtues** (7 available):
+- Compassion, Humility, Forgiveness, Patience, Courage, Wisdom, Hope  
+- Each virtue improves maze traversal (shortcuts, simplified paths)
 
----
+### Maze Effects by Choice
 
-## Technical Features
+| Choice | Maze Effect |
+|--------|-------------|
+| Wrath | Sharp turns and aggressive angles |
+| Envy | Deceptive loops that circle back |
+| Pride | Unnecessarily complex detours |
+| Compassion | Helpful shortcuts between areas |
+| Wisdom | Efficient path connections |
+| Courage | Direct routes to goal |
 
-- **ASCII Art Engine** with typewriter text effect  
-- **Fog of War** with ▒ and ∙ trail markers  
-- **Symbols**: ☠ (player), ⚰ (exit), █ (walls), 🔥 👁 💀 💰 (obstacles)  
-- Robust **error handling & input validation**  
-- Cross-platform terminal support  
+### Judgment Criteria
 
----
+Final fate determined by:
+- **Moral Balance**: Virtue value - Sin value
+- **Path Efficiency**: Player steps / Optimal steps
+- **Combined Score**: Balance - (Efficiency penalty)
 
----
+**Possible Destinations:**
+- **Purgatory**: High virtue, efficient path
+- **Gray Realm**: Balanced choices, moderate efficiency
+- **Lower Circles**: More sins than virtues
+- **The Abyss**: Overwhelming sin, poor navigation
 
-## Ending System
+## Contributing
 
-Three possible endings:  
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open Pull Request
 
-1. **Hell (Damnation)** – heavy sins, poor optimization  
-2. **Purgatory (Default)** – moderate outcome  
-3. **Eternal Silence (Transcendence)** – optimal play, light burden  
+## Acknowledgments
 
----
-
-## Installation & Usage
-
-### Requirements
-- Python 3.6+  
-- keyboard==0.13.5
-- colorama==0.4.6
-
+- Pygame community for excellent documentation
+- Classic maze algorithms and their implementations
+- Dante's Inferno for thematic inspiration
