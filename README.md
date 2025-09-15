@@ -167,14 +167,14 @@ def reveal_around_player(self):
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/asylum-of-sins.git
-cd asylum-of-sins
+git clone https://github.com/hanzel-sc/knapsack-of-sins.git
+cd knapsack-of-sins
 
 # Install pygame
 pip install pygame
 
 # Run game
-python asylum_of_sins.py
+python game.py
 ```
 
 ### Detailed Installation
@@ -188,7 +188,7 @@ python asylum_of_sins.py
 pip install pygame
 
 # Run game
-python asylum_of_sins.py
+python game.py
 ```
 
 #### macOS
@@ -198,7 +198,7 @@ brew install python
 pip install pygame
 
 # Run game
-python asylum_of_sins.py
+python game.py
 ```
 
 #### Linux (Ubuntu/Debian)
@@ -211,7 +211,7 @@ sudo apt install python3 python3-pip
 pip3 install pygame
 
 # Run game
-python3 asylum_of_sins.py
+python3 game.py
 ```
 
 ### Virtual Environment (Recommended)
@@ -230,7 +230,7 @@ source asylum_env/bin/activate
 pip install pygame
 
 # Run game
-python asylum_of_sins.py
+python game.py
 
 # Deactivate when done
 deactivate
@@ -274,7 +274,7 @@ pip install --user pygame
 ```bash
 # Use specific version
 python3 -m pip install pygame
-python3 asylum_of_sins.py
+python3 game.py
 ```
 
 ## Technical Specifications
