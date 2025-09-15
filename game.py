@@ -53,7 +53,8 @@ VIRTUE_SELECTION = 4
 KNAPSACK_SUMMARY = 5
 MAZE_PREP = 6
 MAZE = 7
-JUDGMENT = 8
+OPTIMAL_PATH_VIEW = 8  # New state
+JUDGMENT = 9  # Updated state number
 
 class Item(object):
     def __init__(self, name, weight, value, description, color):
@@ -347,6 +348,7 @@ class AsylumOfSins(object):
         
         # Animation and effects
         self.pulse_timer = 0
+        self.optimal_path_animation = 0  # For animating optimal path display
         
         # Final judgment
         self.final_destination = ""
@@ -529,6 +531,12 @@ class AsylumOfSins(object):
                 elif self.state == MAZE:
                     self._handle_maze_movement(event)
                 
+                elif self.state == OPTIMAL_PATH_VIEW:
+                    if event.key == pygame.K_SPACE:
+                        self.state = JUDGMENT
+                        self.text_timer = 0
+                        self.current_text_index = 0
+                
                 elif self.state == JUDGMENT:
                     if event.key == pygame.K_r:
                         self._reset_game()
@@ -611,9 +619,8 @@ class AsylumOfSins(object):
                 self.path_efficiency = float(user_steps) / optimal_steps if optimal_steps > 0 else 1.0
                 
                 self.judge_soul(self.path_efficiency)
-                self.state = JUDGMENT
-                self.text_timer = 0
-                self.current_text_index = 0
+                self.state = OPTIMAL_PATH_VIEW  # Go to optimal path view first
+                self.optimal_path_animation = 0
 
     def _reset_game(self):
         """Reset game to initial state"""
@@ -630,6 +637,7 @@ class AsylumOfSins(object):
         self.particles = ParticleSystem()
         self.maze_completed = False
         self.visited_cells = set()
+        self.optimal_path_animation = 0
 
     def update_particles(self):
         """Update particle effects"""
@@ -982,6 +990,123 @@ class AsylumOfSins(object):
         
         self.draw_maze_ui()
 
+    def draw_optimal_path_view(self):
+        """Draw the complete maze with optimal path highlighted"""
+        self.screen.fill(BLACK)
+        
+        # Title
+        title = self.large_font.render("THE PATH OF WISDOM REVEALED", True, GOLD)
+        title_rect = title.get_rect(center=(WINDOW_WIDTH//2, 30))
+        self.screen.blit(title, title_rect)
+        
+        # Draw complete maze (no fog of war)
+        for y in range(MAZE_HEIGHT):
+            for x in range(MAZE_WIDTH):
+                screen_x = self.maze_offset_x + x * CELL_SIZE
+                screen_y = self.maze_offset_y + y * CELL_SIZE + 50  # Offset for title
+                
+                if self.maze[y][x] == 1:  # Wall
+                    pygame.draw.rect(self.screen, GRAY, 
+                                   (screen_x, screen_y, CELL_SIZE, CELL_SIZE))
+                    pygame.draw.rect(self.screen, DARK_GRAY, 
+                                   (screen_x + 1, screen_y + 1, CELL_SIZE - 2, CELL_SIZE - 2))
+                else:  # Path
+                    pygame.draw.rect(self.screen, SHADOW, 
+                                   (screen_x, screen_y, CELL_SIZE, CELL_SIZE))
+        
+        # Draw player's actual path in yellow/gold
+        for i, pos in enumerate(self.player_path):
+            screen_x = self.maze_offset_x + pos[0] * CELL_SIZE
+            screen_y = self.maze_offset_y + pos[1] * CELL_SIZE + 50
+            
+            # Gradient effect for player path
+            fade = max(100, 255 - i * 2)
+            color = (fade, int(fade * 0.8), 0)  # Gold gradient
+            
+            pygame.draw.rect(self.screen, color, 
+                           (screen_x + 2, screen_y + 2, CELL_SIZE - 4, CELL_SIZE - 4))
+        
+        # Draw optimal path with animation
+        if self.shortest_path:
+            self.optimal_path_animation += self.clock.get_time()
+            visible_steps = min(len(self.shortest_path), 
+                              max(1, int(self.optimal_path_animation / 50)))  # Reveal over time
+            
+            for i, pos in enumerate(self.shortest_path[:visible_steps]):
+                screen_x = self.maze_offset_x + pos[0] * CELL_SIZE
+                screen_y = self.maze_offset_y + pos[1] * CELL_SIZE + 50
+                
+                # Pulsing blue effect
+                pulse = int(127 + 128 * math.sin((self.optimal_path_animation + i * 100) / 300.0))
+                blue_color = (0, 0, min(255, 100 + pulse))
+                
+                pygame.draw.rect(self.screen, blue_color, 
+                               (screen_x + 1, screen_y + 1, CELL_SIZE - 2, CELL_SIZE - 2))
+        
+        # Draw start and end positions
+        start_screen_x = self.maze_offset_x + 1 * CELL_SIZE
+        start_screen_y = self.maze_offset_y + 1 * CELL_SIZE + 50
+        pygame.draw.rect(self.screen, WHITE, 
+                        (start_screen_x, start_screen_y, CELL_SIZE, CELL_SIZE))
+        
+        goal_screen_x = self.maze_offset_x + self.goal_pos[0] * CELL_SIZE
+        goal_screen_y = self.maze_offset_y + self.goal_pos[1] * CELL_SIZE + 50
+        pygame.draw.rect(self.screen, GREEN, 
+                        (goal_screen_x, goal_screen_y, CELL_SIZE, CELL_SIZE))
+        
+        # Legend and statistics
+        legend_y = self.maze_offset_y + MAZE_HEIGHT * CELL_SIZE + 80
+        
+        # Path statistics
+        user_steps = len(self.player_path) - 1
+        optimal_steps = len(self.shortest_path) - 1 if self.shortest_path else 0
+        
+        stats_text = [
+            "Your Path: %d steps (Gold)" % user_steps,
+            "Optimal Path: %d steps (Blue)" % optimal_steps,
+            "Efficiency: %.2f%%" % (100.0 / self.path_efficiency if self.path_efficiency > 0 else 100.0)
+        ]
+        
+        for i, stat in enumerate(stats_text):
+            if "Efficiency" in stat:
+                efficiency_pct = 100.0 / self.path_efficiency if self.path_efficiency > 0 else 100.0
+                color = GREEN if efficiency_pct >= 80 else YELLOW if efficiency_pct >= 60 else RED
+            elif "Your Path" in stat:
+                color = GOLD
+            elif "Optimal Path" in stat:
+                color = BLUE
+            else:
+                color = WHITE
+            
+            text_surface = self.font.render(stat, True, color)
+            self.screen.blit(text_surface, (50, legend_y + i * 30))
+        
+        # Legend colors
+        legend_items = [
+            ("White Square - Start", WHITE),
+            ("Green Square - Goal", GREEN),
+            ("Gold Trail - Your Journey", GOLD),
+            ("Blue Trail - Perfect Path", BLUE)
+        ]
+        
+        legend_x = WINDOW_WIDTH - 300
+        for i, (text, color) in enumerate(legend_items):
+            # Color square
+            pygame.draw.rect(self.screen, color, 
+                           (legend_x - 30, legend_y + i * 30 + 5, 20, 20))
+            pygame.draw.rect(self.screen, WHITE, 
+                           (legend_x - 30, legend_y + i * 30 + 5, 20, 20), 1)
+            
+            # Text
+            text_surface = self.small_font.render(text, True, WHITE)
+            self.screen.blit(text_surface, (legend_x, legend_y + i * 30 + 8))
+        
+        # Instructions
+        if self.optimal_path_animation > len(self.shortest_path) * 50:
+            instruction = self.font.render("Press SPACE to continue to judgment", True, YELLOW)
+            instruction_rect = instruction.get_rect(center=(WINDOW_WIDTH//2, WINDOW_HEIGHT - 30))
+            self.screen.blit(instruction, instruction_rect)
+
     def draw_maze_ui(self):
         """Draw maze UI elements"""
         # Top status bar
@@ -1122,6 +1247,8 @@ class AsylumOfSins(object):
                 self.draw_maze_prep()
             elif self.state == MAZE:
                 self.draw_maze()
+            elif self.state == OPTIMAL_PATH_VIEW:
+                self.draw_optimal_path_view()
             elif self.state == JUDGMENT:
                 self.draw_judgment()
             
